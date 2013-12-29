@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
+<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css">
+<link rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
+<script src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<style type="text/css">
+.hidden {
+    display: block !important;
+    visibility: visible !important;
+    width: 0px;
+    height: 0px;
+}
+
+.hiddenxx {
+    visibility: hidden;
+    width: 0px;
+    height: 0px;
+    margin: 0px;
+    padding: 0px;
+    border-style: none;
+    border-width: 0px;
+    max-width: 0px;
+    max-height: 0px;
+    display: block;
+}
+</style>
+<script>
+var s1channel = 1;
+var s1trigger = 6;
+var s1transpose = 0;
+</script>
+</head>
+<body>
+
+<div class="container">
+<div class="navbar navbar-default navbar-inverse" role="navigation">
+    <div class="navbar-header">
+        <a class="navbar-brand hidden-sm hidden-md" style="color:#aaa" href="#">8-64 Variable Step Midi Sequencer</a>
+    </div>
+</div> <!-- navbar -->
+</div>
+
+<div class="container" id="oc">
+<object id="Jazz1" classid="CLSID:1ACE1618-1C7D-4561-AEE1-34842AA85E90" class="hidden">
+<object id="Jazz2" type="audio/x-jazz" class="nothidden">
+    <span style="visibility:visible">
+    <div class="jumbotron">
+        <h1>Missing Jazz</h1>
+        <p>This page requires the <a href="http://jazz-soft.net">Jazz-Plugin</a></p>
+        <a class="btn btn-primary btn-lg" role="button" href="http://jazz-soft.net">Download</a>
+    </div>
+    </p>
+</object>
+</object>
+</div>
+
+<div class="container">
+
+<div class="panel panel-default">
+<div class="panel-body">
+<span id=selectmididiv><label>MIDI Out Device </label> <select id=selectmidi onchange='initmidi();'></select></span>
+</p>
+<p>
+<b>Clock:</b>
+<label>Beats:</label> <select id=beat onchange='changebeat();'></select>
+<label>Tempo:</label> <select id=tempo onchange='changetempo();'></select>
+<label>Send Start/Stop/Clock:</label> <input type=checkbox id=sendclock checked=checked></input>
+</p>
+<p>
+<button id=play onclick='play();'>Play</button>
+</div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <b class="panel-title"><span style="color:#ff4422">SEQ</span></b>
+        Channel:   <select id="s1chan"></select>
+        Trigger:   <select id="s1trig"></select>
+        Transpose: <select id="s1trans"></select>
+        <script type="text/javascript">
+            for(var i=1;i<=16;i++){ ($("#s1chan")[0])[i-1] = new Option(i,i,i==s1channel,i==s1channel);}
+            $("#s1chan").change(function(){ s1channel = parseInt($(this).val()); console.log('Set Midi Channel: ' + s1channel); });
+            for(var i=1;i<=24;i++){ ($("#s1trig")[0])[i-1] = new Option(i,i,i==s1trigger,i==s1trigger);}
+            $("#s1trig").change(function(){ s1trigger = parseInt($(this).val()); console.log('Set Trigger: ' + s1trigger); });
+            for(var i=-48;i<=48;i++){ ($("#s1trans")[0])[48-i] = new Option(i,i,i==s1transpose,i==s1transpose);}
+            $("#s1trans").change(function(){ s1transpose = parseInt($(this).val()); console.log('Set Transpose: ' + s1transpose); });
+        </script>
+    </div>
+    <div class="panel-body">
+        <div id="seqtable"></div>
+        Total Steps: <span id="totsteps"></span>
+    </div>
+</div>
+
+</div>
+
+<script>
+var Jazz;
+var playing=0;
+var interval=20;
+var timeout;
+var beat=4;
+var bcount =0;
+var tcount =0;
+
+function play() {
+    if (!(Jazz && Jazz.isJazz)) return;
+    if (playing==1) {
+        //Jazz.MidiOut(0x80+s1channel-1, lastnote, 0);
+        Jazz.MidiOut(0xb0+s1channel-1, 120, 0);
+        if ( sendclock.checked ) Jazz.MidiOut(0xfc);
+        playing=0;
+        document.getElementById('play').innerHTML='Play';
+        clearTimeout(timeout);
+        console.log("Stopped.");
+    } else {
+        if ( sendclock.checked ) Jazz.MidiOut(0xfa);
+        playing=1;
+        document.getElementById('play').innerHTML='Stop';
+        bcount=0;
+        tcount=0;
+        note=0;
+        reppos=0;
+        tick();
+        console.log("Playing.");
+    }
+}
+
+var notes   = new Array(48, 58, 22, 43, 51, 39, 43, 26);
+var repeat  = new Array( 1,  3,  2,  2,  1,  2,  2,  1);
+var noteoff = new Array( 0,  3,  0,  14,  0,  0,  0,  19);
+//var notes   = new Array(36, 35, 38, 39, 36, 41, 39, 35);
+//var repeat  = new Array( 1,  3,  2,  5,  2,  1,  3,  2);
+//var noteoff = new Array( 0,  1,  0,  1,  1,  0,  1,  1);
+
+var note = 0;
+var lastnote = 0;
+var reppos = 0;
+
+function notestr(n) {
+    var ntable = new Array('C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-');
+    return ntable[n%12]+(Math.round(n/12-0.5));
+}
+
+function drawseq() {
+    var table = $('<table></table>').addClass('table');
+    var hdr = $('<tr></tr>').html('<th>Pos</th><th>Note</th><th>Repeat</th><th>Note Off</th>');
+    table.append(hdr);
+
+    for(i=0;i<notes.length;i++) {
+        var cells = '<td>'+(i+1)+'.</td>';
+        cells += '<td><select id=not'+i+' data-row='+i+'></select></td>';
+        cells += '<td><select id=rep'+i+' data-row='+i+'></select></td>';
+        cells += '<td><select id=noff'+i+' data-row='+i+'></select></td>';
+        var row = $('<tr></tr>').html(cells);
+        table.append(row);
+    }
+    $("#seqtable").append(table);
+
+    for(i=0;i<notes.length;i++) {
+        var sid = $('#not'+i)[0];
+        for(var j=127;j>=1;j--){ sid[127-j] = new Option(notestr(j),j,j==notes[i],j==notes[i]);}
+        $('#not'+i).change(function(){
+            var row = $(this).data('row');
+            notes[row] = parseInt($(this).val());
+        });
+        var sid = $('#rep'+i)[0];
+        for(var j=1;j<=8;j++){ sid[j-1] = new Option(j,j,j==repeat[i],j==repeat[i]);}
+        $('#rep'+i).change(function(){
+            var row = $(this).data('row');
+            repeat[row] = parseInt($(this).val());
+            calctotsteps();
+        });
+        var sid = $('#noff'+i)[0];
+        for(var j=0;j<=24;j++){ sid[j] = new Option(j,j,j==noteoff[i],j==noteoff[i]);}
+        $('#noff'+i).change(function(){
+            var row = $(this).data('row');
+            noteoff[row] = parseInt($(this).val());
+        });
+    }
+}
+
+function calctotsteps() {
+    var totsteps = 0;
+    for(var i=0; i<notes.length; i++) {
+        totsteps += repeat[i];
+    }
+    $("#totsteps").text(totsteps);
+}
+
+// called each midi event 1/24 trig
+var lastnoteoff = 0;
+function playnote() {
+    if ( --lastnoteoff == 0 ) { Jazz.MidiOut(0x80+s1channel-1, lastnote, 0); }
+    if (tcount%s1trigger != 0 ) return;
+
+    Jazz.MidiOut(0x80+s1channel-1, lastnote, 0);
+    Jazz.MidiOut(0x90+s1channel-1, notes[note]+s1transpose, 127);
+
+    lastnote = notes[note]+s1transpose;
+    lastnoteoff = noteoff[note];
+
+    $("#seqtable").find('tbody tr:nth-child('+(note+2)+') td:nth-child(1)').effect("highlight", {'color': '#ff0000'}, interval*s1trigger);
+
+    reppos++;
+    if (reppos>=repeat[note]) {
+        reppos = 0;
+        note++;
+        if (note>=notes.length) { note=0; }
+    }
+}
+
+function tick() {
+    if ( sendclock.checked ) Jazz.MidiOut(0xf8);
+    playnote();
+    tcount++;
+    if (tcount>=24) {
+        tcount=0;
+        bcount++;
+        if (bcount>=beat) bcount=0;
+    }
+    timeout = setTimeout(tick,interval);
+}
+
+function initmidi() {
+    if (!(Jazz && Jazz.isJazz)) return;
+    var chan = select_out.options[select_out.selectedIndex].value;
+    console.log('Output Device: '+chan);
+    Jazz.MidiOutOpen(chan);
+
+    // Set default sound to 'synth bass'
+    if ( chan == "Apple DLS Synth" || chan == "Microsoft GS Wavetable Synth" ) {
+        Jazz.MidiOut(0xc0+s1channel-1, 38, 0);
+    }
+}
+
+function changebeat() {
+    beat = select_beat.options[select_beat.selectedIndex].value;
+}
+
+function changetempo() {
+    interval = 60000.0/select_tempo.options[select_tempo.selectedIndex].value/24;
+}
+
+Jazz = $("#Jazz1")[0]; if (!Jazz || !Jazz.isJazz) Jazz = $("#Jazz2")[0];
+if ( Jazz.isJazz ) $("#Jazz2").addClass('hidden');
+
+var select_beat = document.getElementById('beat');
+for(var i=1;i<=8;i++){ select_beat[i-1] = new Option(i,i,i==4,i==4);}
+
+var select_tempo = document.getElementById('tempo');
+for(var i=40;i<=240;i++){ select_tempo[i-40] = new Option(i,i,i==120,i==120);}
+
+var select_out=document.getElementById('selectmidi');
+try{
+    var list=Jazz.MidiOutList();
+    for(var i in list){
+         select_out[i]=new Option(list[i],list[i],i==0,i==0);
+    }
+    initmidi();
+}
+catch(err){console.log(err.message)}
+
+drawseq();
+calctotsteps();
+
+$("#Jazz2").ready(function(){initmidi()});
+</script>
+
+</body>
+</html>
