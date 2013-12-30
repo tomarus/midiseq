@@ -16,24 +16,154 @@
     width: 0px;
     height: 0px;
 }
-
-.hiddenxx {
-    visibility: hidden;
-    width: 0px;
-    height: 0px;
-    margin: 0px;
-    padding: 0px;
-    border-style: none;
-    border-width: 0px;
-    max-width: 0px;
-    max-height: 0px;
-    display: block;
+.navbar-header {
+    text-align: center;
+    float: left;
+    width: 100%;
+}
+.navbar-brand {
+    float: none;
 }
 </style>
 <script>
-var s1channel = 1;
-var s1trigger = 6;
-var s1transpose = 0;
+
+function Sequencer(n, o, c) {
+    this.channel   = c;
+    this.trigger   = 6;
+    this.transpose = 0;
+    this.name      = n;
+    this.J         = o; // jquery dom object
+
+    this.notes   = new Array(61, 73, 64, 75, 61, 68, 80, 59);
+    this.repeat  = new Array( 3,  2,  2,  1,  1,  1,  2,  2);
+    this.noteoff = new Array( 0,  9,  0,  0,  12,  0,  0,  19);
+    //var notes   = new Array(48, 58, 22, 43, 51, 39, 43, 26);
+    //var repeat  = new Array( 1,  3,  2,  2,  1,  2,  2,  1);
+    //var noteoff = new Array( 0,  3,  0,  14,  0,  0,  0,  19);
+    //var notes   = new Array(36, 35, 38, 39, 36, 41, 39, 35);
+    //var repeat  = new Array( 1,  3,  2,  5,  2,  1,  3,  2);
+    //var noteoff = new Array( 0,  1,  0,  1,  1,  0,  1,  1);
+
+    this.note        = 0;
+    this.lastnote    = 0;
+    this.reppos      = 0;
+    this.lastnoteoff = 0;
+}
+
+Sequencer.prototype.totsteps = function() {
+    var ts = 0;
+    for(var i=0; i<this.notes.length; i++) {
+        ts += this.repeat[i];
+    }
+    $('#'+this.name+'steps').text(ts);
+}
+
+Sequencer.prototype.Draw = function() {
+    var chanid  = this.name+'chan';
+    var trigid  = this.name+'trig';
+    var transid = this.name+'trans';
+    var seqid   = this.name+'seq';
+
+    var x = ' \
+        <div class="panel panel-default"><div class="panel-heading"> \
+            <b class="panel-title"><span style="color:#ff4422">SEQ</span></b> \
+            Channel:   <select id='+chanid+'></select> \
+            Trigger:   <select id='+trigid+'></select> \
+            Transpose: <select id='+transid+'></select> \
+        </div> \
+        <div class="panel-body"> \
+            <div id='+seqid+'></div> \
+            Total Steps: <span id='+this.name+'steps></span> \
+        </div> \
+        </div> \
+    ';
+    this.J.append(x);
+    var me = this;
+
+    for(var i=1;i<=16;i++){   ($('#'+chanid)[0])[i-1]   = new Option(i,i,i==me.channel,i==me.channel);}
+    $('#'+chanid).change(function(){ me.channel         = parseInt($(this).val()); console.log("Set Midi Channel: " + me.channel); });
+    for(var i=1;i<=24;i++){   ($('#'+trigid)[0])[i-1]   = new Option(i,i,i==me.trigger,i==me.trigger);}
+    $('#'+trigid).change(function(){ me.trigger         = parseInt($(this).val()); console.log("Set Trigger: " + me.trigger); });
+    for(var i=-48;i<=48;i++){ ($('#'+transid)[0])[48-i] = new Option(i,i,i==me.transpose,i==me.transpose);}
+    $('#'+transid).change(function(){ me.transpose      = parseInt($(this).val()); console.log("Set Transpose: " + me.transpose); });
+
+    var table = $('<table></table>').addClass('table').addClass('table-condensed table-striped table-hover');
+    var hdr = $('<tr></tr>').html('<th>Pos</th><th>Note</th><th>Repeat</th><th>Note Off</th>');
+    table.append(hdr);
+
+    for(i=0;i<this.notes.length;i++) {
+        var cells = '<td>'+(i+1)+'.</td>';
+        cells += '<td><select id=not'+seqid+i+' data-row='+i+'></select></td>';
+        cells += '<td><select id=rep'+seqid+i+' data-row='+i+'></select></td>';
+        cells += '<td><select id=noff'+seqid+i+' data-row='+i+'></select></td>';
+        var row = $('<tr></tr>').html(cells);
+        table.append(row);
+    }
+    $('#'+seqid).append(table);
+
+    for(i=0;i<this.notes.length;i++) {
+        var sid = $('#not'+seqid+i)[0];
+        for(var j=127;j>=1;j--){ sid[127-j] = new Option(notestr(j),j,j==this.notes[i],j==this.notes[i]);}
+        $('#not'+seqid+i).change(function(){
+            var row = $(this).data('row');
+            me.notes[row] = parseInt($(this).val());
+        });
+        var sid = $('#rep'+seqid+i)[0];
+        for(var j=1;j<=8;j++){ sid[j-1] = new Option(j,j,j==this.repeat[i],j==this.repeat[i]);}
+        $('#rep'+seqid+i).change(function(){
+            var row = $(this).data('row');
+            me.repeat[row] = parseInt($(this).val());
+            me.totsteps();
+        });
+        var sid = $('#noff'+seqid+i)[0];
+        for(var j=0;j<=24;j++){ sid[j] = new Option(j,j,j==this.noteoff[i],j==this.noteoff[i]);}
+        $('#noff'+seqid+i).change(function(){
+            var row = $(this).data('row');
+            me.noteoff[row] = parseInt($(this).val());
+        });
+    }
+
+    this.totsteps();
+}
+
+Sequencer.prototype.SetDefault = function() {
+    Jazz.MidiOut(0xc0+this.channel-1, 38, 0); // synth bass
+}
+
+Sequencer.prototype.Init = function() {
+    this.note        = 0;
+    this.lastnote    = 0;
+    this.reppos      = 0;
+    this.lastnoteoff = 0;
+}
+
+Sequencer.prototype.Stop = function() {
+    Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0);
+    Jazz.MidiOut(0xb0+this.channel-1, 120, 0);
+}
+
+// called each midi event 1/24 trig
+Sequencer.prototype.Playnote = function() {
+    if ( --this.lastnoteoff == 0 ) { Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0); }
+    if (tcount%this.trigger != 0 ) return;
+
+    Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0);
+    Jazz.MidiOut(0x90+this.channel-1, this.notes[this.note]+this.transpose, 127);
+
+    this.lastnote = this.notes[this.note]+this.transpose;
+    this.lastnoteoff = this.noteoff[this.note];
+
+    $('#'+this.name+'seq').find('tbody tr:nth-child('+(this.note+2)+') td:nth-child(1)').effect("highlight", {'color': '#ff0000'}, interval*this.trigger);
+
+    this.reppos++;
+    if (this.reppos>=this.repeat[this.note]) {
+        this.reppos = 0;
+        this.note++;
+        if (this.note>=this.notes.length) { this.note=0; }
+    }
+}
+
+
 </script>
 </head>
 <body>
@@ -77,28 +207,8 @@ var s1transpose = 0;
 </div>
 </div>
 
-<div class="panel panel-default">
-    <div class="panel-heading">
-        <b class="panel-title"><span style="color:#ff4422">SEQ</span></b>
-        Channel:   <select id="s1chan"></select>
-        Trigger:   <select id="s1trig"></select>
-        Transpose: <select id="s1trans"></select>
-        <script type="text/javascript">
-            for(var i=1;i<=16;i++){ ($("#s1chan")[0])[i-1] = new Option(i,i,i==s1channel,i==s1channel);}
-            $("#s1chan").change(function(){ s1channel = parseInt($(this).val()); console.log('Set Midi Channel: ' + s1channel); });
-            for(var i=1;i<=24;i++){ ($("#s1trig")[0])[i-1] = new Option(i,i,i==s1trigger,i==s1trigger);}
-            $("#s1trig").change(function(){ s1trigger = parseInt($(this).val()); console.log('Set Trigger: ' + s1trigger); });
-            for(var i=-48;i<=48;i++){ ($("#s1trans")[0])[48-i] = new Option(i,i,i==s1transpose,i==s1transpose);}
-            $("#s1trans").change(function(){ s1transpose = parseInt($(this).val()); console.log('Set Transpose: ' + s1transpose); });
-        </script>
-    </div>
-    <div class="panel-body">
-        <div id="seqtable"></div>
-        Total Steps: <span id="totsteps"></span>
-    </div>
-</div>
-
-</div>
+<div id="seq01"></div>
+<div id="seq02"></div>
 
 <script>
 var Jazz;
@@ -112,12 +222,13 @@ var tcount =0;
 function play() {
     if (!(Jazz && Jazz.isJazz)) return;
     if (playing==1) {
-        //Jazz.MidiOut(0x80+s1channel-1, lastnote, 0);
-        Jazz.MidiOut(0xb0+s1channel-1, 120, 0);
+        s1.Stop();
+        s2.Stop();
         if ( sendclock.checked ) Jazz.MidiOut(0xfc);
         playing=0;
         document.getElementById('play').innerHTML='Play';
-        clearTimeout(timeout);
+        //clearTimeout(timeout);
+        clearInterval(timeout);
         console.log("Stopped.");
     } else {
         if ( sendclock.checked ) Jazz.MidiOut(0xfa);
@@ -125,107 +236,30 @@ function play() {
         document.getElementById('play').innerHTML='Stop';
         bcount=0;
         tcount=0;
-        note=0;
-        reppos=0;
+        s1.Init();
+        s2.Init();
+        timeout = setInterval(tick, interval);
         tick();
         console.log("Playing.");
     }
 }
-
-var notes   = new Array(48, 58, 22, 43, 51, 39, 43, 26);
-var repeat  = new Array( 1,  3,  2,  2,  1,  2,  2,  1);
-var noteoff = new Array( 0,  3,  0,  14,  0,  0,  0,  19);
-//var notes   = new Array(36, 35, 38, 39, 36, 41, 39, 35);
-//var repeat  = new Array( 1,  3,  2,  5,  2,  1,  3,  2);
-//var noteoff = new Array( 0,  1,  0,  1,  1,  0,  1,  1);
-
-var note = 0;
-var lastnote = 0;
-var reppos = 0;
 
 function notestr(n) {
     var ntable = new Array('C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-');
     return ntable[n%12]+(Math.round(n/12-0.5));
 }
 
-function drawseq() {
-    var table = $('<table></table>').addClass('table');
-    var hdr = $('<tr></tr>').html('<th>Pos</th><th>Note</th><th>Repeat</th><th>Note Off</th>');
-    table.append(hdr);
-
-    for(i=0;i<notes.length;i++) {
-        var cells = '<td>'+(i+1)+'.</td>';
-        cells += '<td><select id=not'+i+' data-row='+i+'></select></td>';
-        cells += '<td><select id=rep'+i+' data-row='+i+'></select></td>';
-        cells += '<td><select id=noff'+i+' data-row='+i+'></select></td>';
-        var row = $('<tr></tr>').html(cells);
-        table.append(row);
-    }
-    $("#seqtable").append(table);
-
-    for(i=0;i<notes.length;i++) {
-        var sid = $('#not'+i)[0];
-        for(var j=127;j>=1;j--){ sid[127-j] = new Option(notestr(j),j,j==notes[i],j==notes[i]);}
-        $('#not'+i).change(function(){
-            var row = $(this).data('row');
-            notes[row] = parseInt($(this).val());
-        });
-        var sid = $('#rep'+i)[0];
-        for(var j=1;j<=8;j++){ sid[j-1] = new Option(j,j,j==repeat[i],j==repeat[i]);}
-        $('#rep'+i).change(function(){
-            var row = $(this).data('row');
-            repeat[row] = parseInt($(this).val());
-            calctotsteps();
-        });
-        var sid = $('#noff'+i)[0];
-        for(var j=0;j<=24;j++){ sid[j] = new Option(j,j,j==noteoff[i],j==noteoff[i]);}
-        $('#noff'+i).change(function(){
-            var row = $(this).data('row');
-            noteoff[row] = parseInt($(this).val());
-        });
-    }
-}
-
-function calctotsteps() {
-    var totsteps = 0;
-    for(var i=0; i<notes.length; i++) {
-        totsteps += repeat[i];
-    }
-    $("#totsteps").text(totsteps);
-}
-
-// called each midi event 1/24 trig
-var lastnoteoff = 0;
-function playnote() {
-    if ( --lastnoteoff == 0 ) { Jazz.MidiOut(0x80+s1channel-1, lastnote, 0); }
-    if (tcount%s1trigger != 0 ) return;
-
-    Jazz.MidiOut(0x80+s1channel-1, lastnote, 0);
-    Jazz.MidiOut(0x90+s1channel-1, notes[note]+s1transpose, 127);
-
-    lastnote = notes[note]+s1transpose;
-    lastnoteoff = noteoff[note];
-
-    $("#seqtable").find('tbody tr:nth-child('+(note+2)+') td:nth-child(1)').effect("highlight", {'color': '#ff0000'}, interval*s1trigger);
-
-    reppos++;
-    if (reppos>=repeat[note]) {
-        reppos = 0;
-        note++;
-        if (note>=notes.length) { note=0; }
-    }
-}
-
 function tick() {
+//    timeout = setTimeout(tick,interval);
     if ( sendclock.checked ) Jazz.MidiOut(0xf8);
-    playnote();
+    s1.Playnote();
+    s2.Playnote();
     tcount++;
     if (tcount>=24) {
         tcount=0;
         bcount++;
         if (bcount>=beat) bcount=0;
     }
-    timeout = setTimeout(tick,interval);
 }
 
 function initmidi() {
@@ -234,9 +268,10 @@ function initmidi() {
     console.log('Output Device: '+chan);
     Jazz.MidiOutOpen(chan);
 
-    // Set default sound to 'synth bass'
+    // Set default sounds on default os synths.
     if ( chan == "Apple DLS Synth" || chan == "Microsoft GS Wavetable Synth" ) {
-        Jazz.MidiOut(0xc0+s1channel-1, 38, 0);
+        s1.SetDefault();
+        s2.SetDefault();
     }
 }
 
@@ -267,8 +302,11 @@ try{
 }
 catch(err){console.log(err.message)}
 
-drawseq();
-calctotsteps();
+var s1 = new Sequencer("s1", $("#seq01"), 1);
+s1.Draw();
+
+var s2 = new Sequencer("s2", $("#seq02"), 2);
+s2.Draw();
 
 $("#Jazz2").ready(function(){initmidi()});
 </script>
