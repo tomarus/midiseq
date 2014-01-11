@@ -9,6 +9,7 @@
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
 <script src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script src="js/player.js"></script>
 <style type="text/css">
 .hidden {
     display: block !important;
@@ -25,243 +26,6 @@
     float: none;
 }
 </style>
-<script>
-
-// from http://www.g200kg.com/teburin/
-var scaletab=[
-    {name: "Chromatic",         notes: [1,1,1,1,1,1,1,1,1,1,1,1] },
-    {name: "Major",             notes: [1,0,1,0,1,1,0,1,0,1,0,1] },
-    {name: "Natural Minor",     notes: [1,0,1,1,0,1,0,1,1,0,1,0] },
-    {name: "Harmonic Minor",    notes: [1,0,1,1,0,1,0,1,1,0,0,1] },
-    {name: "Whole Tone",        notes: [1,0,1,0,1,0,1,0,1,0,1,0] },
-    {name: "Diminish",          notes: [1,0,1,1,0,1,1,0,1,1,0,1] },
-    {name: "Major Pentatonic",  notes: [1,0,1,0,1,0,0,1,0,1,0,0] },
-    {name: "Minor Pentatonic",  notes: [1,0,0,1,0,1,0,1,0,0,1,0] },
-    {name: "Blues",             notes: [1,0,0,1,0,1,1,1,0,1,1,0] },
-    {name: "Gamelan",           notes: [1,1,0,1,0,0,0,1,1,0,0,0] },
-
-];
-
-function Sequencer(n, o, c) {
-    this.channel   = c;
-    this.trigger   = 6;
-    this.transpose = 0;
-    this.muted     = 0;
-    this.name      = n;
-    this.loop      = 1; // 1=fwd, 2=rev, 3=pingpong
-    this.J         = o; // jquery dom object
-
-    this.notes   = new Array(61, 73, 64, 75, 61, 68, 80, 59);
-    this.repeat  = new Array( 3,  2,  2,  1,  1,  1,  2,  2);
-    this.noteoff = new Array( 0,  9,  0,  0,  12,  0,  0,  19);
-    this.retrig  = new Array( 1,  1,  0,  0,  1,  0,  0,  1);
-    //var notes   = new Array(48, 58, 22, 43, 51, 39, 43, 26);
-    //var repeat  = new Array( 1,  3,  2,  2,  1,  2,  2,  1);
-    //var noteoff = new Array( 0,  3,  0,  14,  0,  0,  0,  19);
-    //var notes   = new Array(36, 35, 38, 39, 36, 41, 39, 35);
-    //var repeat  = new Array( 1,  3,  2,  5,  2,  1,  3,  2);
-    //var noteoff = new Array( 0,  1,  0,  1,  1,  0,  1,  1);
-
-    this.note        = 0;
-    this.lastnote    = 0;
-    this.reppos      = 0;
-    this.lastnoteoff = 0;
-    this.looppos     = 0;
-}
-
-Sequencer.prototype.totsteps = function() {
-    var ts = 0;
-    for(var i=0; i<this.notes.length; i++) {
-        ts += this.repeat[i];
-    }
-    $('#'+this.name+'steps').text(ts);
-}
-
-Sequencer.prototype.Draw = function() {
-    var chanid  = this.name+'chan';
-    var trigid  = this.name+'trig';
-    var transid = this.name+'trans';
-    var seqid   = this.name+'seq';
-    var muteid  = this.name+'mute';
-
-    var x = ' \
-        <div class="panel panel-default"> \
-        <div class="panel-heading"> \
-            <b class="panel-title"><span style="color:#ff4422">SEQ</span></b> \
-            Channel:   <select id='+chanid+'></select> \
-            Trigger:   <select id='+trigid+'></select> \
-            Transpose: <select id='+transid+'></select> \
-            Mute:      <input type=checkbox id='+muteid+'></select> \
-            Loop:       <select id='+this.name+'loop> \
-                        <option value=1>Forward</option><option value=2>Backward</option><option value=3>Pingpong</option> \
-                        </select> \
-            <div class="pull-right"> \
-                <select id='+this.name+'scale></select> \
-                <select id='+this.name+'range></select> Oct \
-                <button id='+this.name+'rand>Randomize</button> \
-            </div> \
-        </div> \
-            <div id='+seqid+'></div> \
-            Total Steps: <span id='+this.name+'steps></span> \
-        </div> \
-    ';
-    this.J.append(x);
-    var me = this;
-
-    for(var i=0;i<scaletab.length;i++){ ($('#'+this.name+'scale')[0])[i] = new Option(scaletab[i].name,i,0,0); }
-    for(var i=1;i<=6;i++){ ($('#'+this.name+'range')[0])[i-1] = new Option(i,i,4,4); }
-
-    for(var i=1;i<=16;i++){   ($('#'+chanid)[0])[i-1]   = new Option(i,i,i==me.channel,i==me.channel);}
-    $('#'+chanid).change(function(){ me.channel         = parseInt($(this).val()); console.log("Set Midi Channel: " + me.channel); });
-    for(var i=1;i<=24;i++){   ($('#'+trigid)[0])[i-1]   = new Option(i,i,i==me.trigger,i==me.trigger);}
-    $('#'+trigid).change(function(){ me.trigger         = parseInt($(this).val()); console.log("Set Trigger: " + me.trigger); });
-    for(var i=-48;i<=48;i++){ ($('#'+transid)[0])[48-i] = new Option(i,i,i==me.transpose,i==me.transpose);}
-    $('#'+transid).change(function(){ me.transpose      = parseInt($(this).val()); console.log("Set Transpose: " + me.transpose); });
-    $('#'+muteid).change(function(){ me.muted = this.checked; console.log("Muted: "+me.muted) });
-    $('#'+this.name+'loop').change(function(){ me.loop = parseInt($(this).val()); });
-    $('#'+this.name+'rand').click(function(){ me.Randomize() });
-
-    var table = $('<table></table>').addClass('table').addClass('table-condensed table-striped');
-    var hdr = $('<tr></tr>').html('<th>Pos</th><th>Note</th><th>Repeat</th><th>Retrig</th><th>Len</th>');
-    table.append(hdr);
-
-    for(i=0;i<this.notes.length;i++) {
-        var cells = '<td>'+(i+1)+'.</td>';
-        cells += '<td><select id=not'+seqid+i+' data-row='+i+'></select><div id=notslide'+seqid+i+'></div></td>';
-        cells += '<td><select id=rep'+seqid+i+' data-row='+i+'></select></td>';
-        cells += '<td><input type=checkbox id=retr'+seqid+i+' data-row='+i+'></input></td>';
-        cells += '<td><select id=noff'+seqid+i+' data-row='+i+'></select></td>';
-        var row = $('<tr></tr>').html(cells);
-        table.append(row);
-    }
-    $('#'+seqid).append(table);
-
-    for(i=0;i<this.notes.length;i++) {
-        var sid = $('#not'+seqid+i)[0];
-        for(var j=127;j>=1;j--){ sid[127-j] = new Option(notestr(j),j,j==this.notes[i],j==this.notes[i]);}
-        $('#not'+seqid+i).change(function(){
-            var row = $(this).data('row');
-            me.notes[row] = parseInt($(this).val());
-        });
-        var sid = $('#rep'+seqid+i)[0];
-        for(var j=1;j<=8;j++){ sid[j-1] = new Option(j,j,j==this.repeat[i],j==this.repeat[i]);}
-        $('#rep'+seqid+i).change(function(){
-            var row = $(this).data('row');
-            me.repeat[row] = parseInt($(this).val());
-            me.totsteps();
-        });
-        var sid = $('#retr'+seqid+i)[0];
-        sid.checked = this.retrig[i];
-        $('#retr'+seqid+i).change(function(){
-            var row = $(this).data('row');
-            me.retrig[row] = this.checked;
-        });
-        var sid = $('#noff'+seqid+i)[0];
-        for(var j=0;j<=24;j++){ sid[j] = new Option(j,j,j==this.noteoff[i],j==this.noteoff[i]);}
-        $('#noff'+seqid+i).change(function(){
-            var row = $(this).data('row');
-            me.noteoff[row] = parseInt($(this).val());
-        });
-    }
-
-    this.totsteps();
-}
-
-Sequencer.prototype.Refresh = function() {
-    var seqid = this.name+'seq';
-    for(i=0;i<this.notes.length;i++) {
-        var sid = $('#not'+seqid+i)[0];
-        for(var j=127;j>=1;j--){ sid[127-j].selected = j==this.notes[i];}
-        var sid = $('#rep'+seqid+i)[0];
-        for(var j=1;j<=8;j++){ sid[j-1].selected = j==this.repeat[i];}
-        var sid = $('#retr'+seqid+i)[0];
-        sid.checked = this.retrig[i];
-        var sid = $('#noff'+seqid+i)[0];
-        for(var j=0;j<=24;j++){ sid[j].selected = j==this.noteoff[i];}
-    }
-    this.totsteps();
-}
-
-Sequencer.prototype.Randomize = function() {
-    var scale = $('#'+this.name+'scale').val();
-    var range = $('#'+this.name+'range').val();
-    for(i=0;i<this.notes.length;i++) {
-        var not = Math.floor(Math.random()*12);
-        while(scaletab[scale].notes[not] != 1) {
-            not = Math.floor(Math.random()*12);
-        }
-        // calc transpose octave using base note 48. greater ranges starts lower.
-        not += 48 + (Math.floor(Math.random()*range) - (range>3?range-3:0)) * 12
-        this.notes[i] = not;
-
-        this.repeat[i]  = Math.floor((Math.random()*4)+1);
-        this.noteoff[i] = Math.floor(Math.random()*6);
-        this.retrig[i]  = Math.floor(Math.random()+0.5);
-    }
-    this.Refresh();
-}
-
-Sequencer.prototype.SetDefault = function() {
-    if ( this.channel == 1 ) {
-        Jazz.MidiOut(0xc0+this.channel-1, 38, 0); // synth bass
-    } else if ( this.channel == 2 ) {
-        Jazz.MidiOut(0xc0+this.channel-1, 81, 0); // saw lead
-    }
-}
-
-Sequencer.prototype.Init = function() {
-    this.note        = 0;
-    this.lastnote    = 0;
-    this.reppos      = 0;
-    this.lastnoteoff = 0;
-    this.looppos     = 0;
-
-    if (this.loop == 2)
-        this.note = this.notes.length-1;
-}
-
-Sequencer.prototype.Stop = function() {
-    Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0);
-    Jazz.MidiOut(0xb0+this.channel-1, 120, 0);
-}
-
-// called each midi event 1/24 trig
-Sequencer.prototype.Playnote = function() {
-    if ( --this.lastnoteoff == 0 ) { Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0); }
-    if (tcount%this.trigger > 0 ) return;
-
-    if ( !this.muted && (this.retrig[this.note] || this.reppos == 0) ) {
-        Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0);
-        Jazz.MidiOut(0x90+this.channel-1, this.notes[this.note]+this.transpose, 127);
-    }
-
-    this.lastnote = this.notes[this.note]+this.transpose;
-    this.lastnoteoff = this.noteoff[this.note];
-
-    var col = '#ff0000';
-    if ( this.muted ) col = '#ccc';
-    $('#'+this.name+'seq').find('tbody tr:nth-child('+(this.note+2)+') td:nth-child(1)').effect("highlight", {'color': col}, interval*this.trigger);
-
-    this.reppos++;
-    if (this.reppos>=this.repeat[this.note]) {
-        this.reppos = 0;
-        if ( this.loop == 1 ) { // forward
-            this.note++; if (this.note>=this.notes.length) { this.note=0; }
-        } else if ( this.loop == 2 ) { // backward
-            this.note--; if (this.note<0) { this.note=this.notes.length-1; }
-        } else if ( this.loop == 3 && this.looppos == 0 ) { // pingpong forward
-            this.note++; if (this.note>=this.notes.length) { this.note=this.notes.length-1; this.looppos = 1 }
-        } else if ( this.loop == 3 && this.looppos == 1 ) { // pingpong backward
-            this.note--;
-            if (this.note<0) { this.note = 0; this.looppos = 0 }
-        } else {
-            alert("Cant be here.");
-        }
-    }
-}
-
-
-</script>
 </head>
 <body>
 
@@ -270,7 +34,7 @@ Sequencer.prototype.Playnote = function() {
     <div class="navbar-header">
         <a class="navbar-brand hidden-sm hidden-md" style="color:#aaa" href="#">8-64 Variable Step Midi Sequencer</a>
     </div>
-</div> <!-- navbar -->
+</div>
 </div>
 
 <div class="container" id="oc">
@@ -288,126 +52,15 @@ Sequencer.prototype.Playnote = function() {
 </div>
 
 <div class="container">
-
-<div class="panel panel-default">
-<div class="panel-body">
-<span id=selectmididiv><label>MIDI Out Device </label> <select id=selectmidi onchange='initmidi();'></select></span>
-</p>
-<p>
-<b>Clock:</b>
-<label>Beats:</label> <select id=beat onchange='changebeat();'></select>
-<label>Tempo:</label> <select id=tempo onchange='changetempo();'></select>
-<label>Send Start/Stop/Clock:</label> <input type=checkbox id=sendclock checked=checked></input>
-</p>
-<p>
-<button id=play onclick='play();'>Play</button>
-</div>
-</div>
-
-<div id="seq01"></div>
-<div id="seq02"></div>
+<div id="player"></div>
 
 <script>
 var Jazz;
-var playing=0;
-var interval=20;
-var timeout;
-var beat=4;
-var bcount =0;
-var tcount =0;
-
-function play() {
-    if (!(Jazz && Jazz.isJazz)) return;
-    if (playing==1) {
-        s1.Stop();
-        s2.Stop();
-        if ( sendclock.checked ) Jazz.MidiOut(0xfc);
-        playing=0;
-        document.getElementById('play').innerHTML='Play';
-        //clearTimeout(timeout);
-        clearInterval(timeout);
-        console.log("Stopped.");
-    } else {
-        if ( sendclock.checked ) Jazz.MidiOut(0xfa);
-        playing=1;
-        document.getElementById('play').innerHTML='Stop';
-        bcount=0;
-        tcount=0;
-        s1.Init();
-        s2.Init();
-        timeout = setInterval(tick, interval);
-        tick();
-        console.log("Playing.");
-    }
-}
-
-function notestr(n) {
-    var ntable = new Array('C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-');
-    return ntable[n%12]+(Math.round(n/12-0.5));
-}
-
-function tick() {
-//    timeout = setTimeout(tick,interval);
-    if ( sendclock.checked ) Jazz.MidiOut(0xf8);
-    s1.Playnote();
-    s2.Playnote();
-    tcount++;
-    if (tcount%24 == 0) {
-        bcount++;
-        if (bcount>=beat) bcount=0;
-    }
-}
-
-function initmidi() {
-    if (!(Jazz && Jazz.isJazz)) return;
-    var chan = select_out.options[select_out.selectedIndex].value;
-    console.log('Output Device: '+chan);
-    Jazz.MidiOutOpen(chan);
-}
-
-function setdefaults() {
-    // Set default sounds on default os synths.
-    var chan = select_out.options[select_out.selectedIndex].value;
-    if ( chan == "Apple DLS Synth" || chan == "Microsoft GS Wavetable Synth" ) {
-        s1.SetDefault();
-        s2.SetDefault();
-    }
-}
-
-function changebeat() {
-    beat = select_beat.options[select_beat.selectedIndex].value;
-}
-
-function changetempo() {
-    interval = 60000.0/select_tempo.options[select_tempo.selectedIndex].value/24;
-}
 
 Jazz = $("#Jazz1")[0]; if (!Jazz || !Jazz.isJazz) Jazz = $("#Jazz2")[0];
 if ( Jazz.isJazz ) $("#Jazz2").addClass('hidden');
 
-var select_beat = document.getElementById('beat');
-for(var i=1;i<=8;i++){ select_beat[i-1] = new Option(i,i,i==4,i==4);}
-
-var select_tempo = document.getElementById('tempo');
-for(var i=40;i<=240;i++){ select_tempo[i-40] = new Option(i,i,i==120,i==120);}
-
-var select_out=document.getElementById('selectmidi');
-try{
-    var list=Jazz.MidiOutList();
-    for(var i in list){
-         select_out[i]=new Option(list[i],list[i],i==0,i==0);
-    }
-    initmidi();
-}
-catch(err){console.log(err.message)}
-
-var s1 = new Sequencer("s1", $("#seq01"), 1);
-s1.Draw();
-
-var s2 = new Sequencer("s2", $("#seq02"), 2);
-s2.Draw();
-
-$("#Jazz2").ready(function(){initmidi();setdefaults()});
+$("#Jazz2").ready(function(){player = new Player(); player.Draw()});
 </script>
 
 </body>
