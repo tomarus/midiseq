@@ -3,6 +3,7 @@
 <head>
 <title>Test</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
 <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap.min.css">
 <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.3/css/bootstrap-theme.min.css">
 <link rel="stylesheet" href="//code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css">
@@ -10,11 +11,12 @@
 <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.3/js/bootstrap.min.js"></script>
 <script src="//code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 <script src="js/player.js"></script>
+
 <style type="text/css">
 .hidden {
     display: block !important;
     visibility: visible !important;
-    width: 0px;
+    _width: 0px;
     height: 0px;
 }
 .navbar-header {
@@ -28,38 +30,33 @@
 </style>
 </head>
 <body>
-
 <div class="container">
+
 <div class="navbar navbar-default navbar-inverse" role="navigation">
     <div class="navbar-header">
-        <a class="navbar-brand hidden-sm hidden-md" style="color:#aaa" href="#">8-64 Variable Step Midi Sequencer</a>
+        <a class="navbar-brand hidden-sm" style="color:#aaa" href="#">8-64 Variable Step Midi Sequencer</a>
     </div>
 </div>
-</div>
 
-<div class="container" id="oc">
 <object id="Jazz1" classid="CLSID:1ACE1618-1C7D-4561-AEE1-34842AA85E90" class="hidden">
 <object id="Jazz2" type="audio/x-jazz" class="nothidden">
     <span style="visibility:visible">
     <div class="jumbotron">
+    <div class="container">
         <h1>Missing Jazz</h1>
         <p>This page requires the <a href="http://jazz-soft.net">Jazz-Plugin</a></p>
         <a class="btn btn-primary btn-lg" role="button" href="http://jazz-soft.net">Download</a>
     </div>
-    </p>
+    </div>
 </object>
 </object>
-</div>
 
-<div class="container">
 <div id="player"></div>
 
 <script>
 var Jazz;
-
 Jazz = $("#Jazz1")[0]; if (!Jazz || !Jazz.isJazz) Jazz = $("#Jazz2")[0];
 if ( Jazz.isJazz ) $("#Jazz2").addClass('hidden');
-
 $("#Jazz2").ready(function(){player = new Player(); player.Draw()});
 </script>
 
