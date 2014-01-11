@@ -107,7 +107,7 @@ Sequencer = function(n, c) {
     this.change_mute = function() {
         var id = document.getElementById(this.muteid);
         this.muted = id.checked;
-        this.SoundOff();
+        this.Stop();
         console.log(this.name+' change_muted: '+this.muted);
     }
 
@@ -134,6 +134,7 @@ Sequencer = function(n, c) {
                     <select id='+this.scaleid+'></select> \
                     <select id='+this.rangeid+'></select> Oct \
                     <button onclick="'+this.name+'.Randomize()">Randomize</button> \
+                    <button onclick="'+this.name+'.Reset()">Init</button> \
                 </div> \
             </div> \
                 <div id='+this.seqid+'></div> \
@@ -231,6 +232,18 @@ Sequencer = function(n, c) {
         Jazz.MidiOut(0xb0+this.channel-1, 123, 0);
     }
 
+    this.Reset = function() {
+        for(i=0;i<this.notes.length;i++) {
+            this.notes[i]   = 48; // c4
+            this.repeat[i]  = 1;
+            this.noteoff[i] = 0;
+            this.retrig[i]  = 0;
+        }
+        this.Refresh();
+        // all note off msg
+        Jazz.MidiOut(0xb0+this.channel-1, 123, 0);
+    }
+
     this.SetDefault = function() {
         if ( this.channel == 1 ) {
             Jazz.MidiOut(0xc0+this.channel-1, 38, 0); // synth bass
@@ -250,7 +263,7 @@ Sequencer = function(n, c) {
             this.note = this.notes.length-1;
     }
 
-    this.SoundOff = function() {
+    this.Stop = function() {
         Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0);
         Jazz.MidiOut(0xb0+this.channel-1, 120, 0);
         Jazz.MidiOut(0xb0+this.channel-1, 123, 0);
@@ -291,6 +304,31 @@ Sequencer = function(n, c) {
         }
     }
 }; // Sequencer
+
+// Global midi input handler
+
+var midi_handler_id;
+var midi_in_playing = 0;
+
+function midi_handler(t,a,b,c) {
+    switch(a) {
+        case 0xf8: // clock msg
+            if (midi_in_playing) player.tick();
+            break;
+        case 0xfa: // start msg
+            player.Init();
+            midi_in_playing = 1;
+            console.log("Remote start.");
+            break;
+        case 0xfc: // stop msg
+            player.Stop();
+            midi_in_playing = 0;
+            console.log("Remote stop.");
+            break;
+        default:
+            console.log(t,a,b,c);
+    }
+}
 
 // Player object which holds one or more sequencers.
 
@@ -374,26 +412,33 @@ Player = function() {
         seq02.Draw();
     }
 
+    this.Stop = function() {
+        seq01.Stop();
+        seq02.Stop();
+    }
+
+    this.Init = function() {
+        this.bcount = 0;
+        tcount = 0;
+        seq01.Init();
+        seq02.Init();
+        this.tick();
+    }
+
     this.Play = function() {
         if (this.playing==1) {
-            seq01.SoundOff();
-            seq02.SoundOff();
+            this.Stop();
             if ( this.sync == 1 ) Jazz.MidiOut(0xfc);
             this.playing=0;
             document.getElementById('play').innerHTML='Play';
-            //clearTimeout(timeout);
             clearInterval(this.timeout);
             console.log("Stopped.");
         } else {
             if ( this.sync == 1 ) Jazz.MidiOut(0xfa);
             this.playing=1;
             document.getElementById('play').innerHTML='Stop';
-            this.bcount=0;
-            tcount=0;
-            seq01.Init();
-            seq02.Init();
+            this.Init();
             this.timeout = setInterval(function(){player.tick();}, this.interval);
-            this.tick();
             console.log("Playing.");
         }
     }
@@ -417,7 +462,7 @@ Player = function() {
         this.midi_in = select_in.options[select_in.selectedIndex] ? select_in.options[select_in.selectedIndex].value : 0;
         console.log('Output Device: '+this.midi_out+' Input Device: '+this.midi_in);
         Jazz.MidiOutOpen(this.midi_out);
-        //Jazz.MidiInOpen(this.midi_in);
+        if (this.midi_in!=0) Jazz.MidiInOpen(this.midi_in, midi_handler);
     }
 
     this.setdefaults = function() {
@@ -441,5 +486,10 @@ Player = function() {
     this.changesync = function() {
         var select_sync = document.getElementById('clocksync');
         this.sync = select_sync.options[select_sync.selectedIndex].value;
+
+        // setup midi input
+        if ( this.sync == 2 ) {
+            midi_handler_id = Jazz.MidiInOpen(this.midi_in, midi_handler);
+        }
     }
 };
