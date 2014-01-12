@@ -274,16 +274,16 @@ Sequencer = function(n, c) {
         if ( --this.lastnoteoff == 0 ) { Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0); }
         if (tcount%this.trigger > 0 ) return;
 
-        if ( !this.muted && (this.retrig[this.note] || this.reppos == 0) ) {
+        var trg = this.retrig[this.note] || this.reppos == 0;
+        if ( !this.muted && trg ) {
             Jazz.MidiOut(0x80+this.channel-1, this.lastnote, 0);
             Jazz.MidiOut(0x90+this.channel-1, this.notes[this.note]+this.transpose, 127);
-
-            var col = '#ff0000';
-            if ( this.muted ) col = '#ccc';
-            $('#'+this.seqid).find('tbody tr:nth-child('+(this.note+2)+') td:nth-child(1)').effect("highlight", {'color': col}, 20);
+            $('#'+this.seqid).find('tbody tr:nth-child('+(this.note+2)+') td:nth-child(1)').effect("highlight", {'color': '#f00'}, 50);
+        } else if (this.muted && trg) {
+            $('#'+this.seqid).find('tbody tr:nth-child('+(this.note+2)+') td:nth-child(1)').effect("highlight", {'color': '#ccc'}, 50);
         }
 
-        this.lastnote = this.notes[this.note]+this.transpose;
+        this.lastnote    = this.notes[this.note]+this.transpose;
         this.lastnoteoff = this.noteoff[this.note] * (this.retrig[this.note] ? 1 : this.repeat[this.note]);
 
         this.reppos++;
@@ -341,8 +341,6 @@ Player = function() {
     this.playing  = 0;
     this.interval = 20;
     this.timeout  = 0;
-    this.beat     = 4;
-    this.bcount   = 0;
     this.midi_in;
     this.midi_out;
     this.sync     = 1; // 1 = send, 2 = receive, 3 = nothing
@@ -371,12 +369,10 @@ Player = function() {
                 <table> \
                 <tr><td>MIDI Output Device:</td><td><select id="select_out" onchange="player.initmidi();"></select></td></tr> \
                 <tr><td>MIDI Input Device:</td><td><select id="select_in" onchange="player.initmidi();"></select></td></tr> \
-                <tr><td colspan="2">&nbsp;</td></tr> \
-                <tr><td>Beats:</td><td><select id=beat onchange="player.changebeat();"></select></td></tr> \
-                <tr><td>Tempo:</td><td><select id=tempo onchange="player.changetempo();"></select></td></tr> \
                 <tr><td>Clock Sync:</td><td><select id="clocksync" onchange="player.changesync();"> \
                     <option value=1>Send</option><option value=2>Receive</option><option value=3>Neither</option> \
-                </select></td></tr> \
+                    </select></td></tr> \
+                <tr><td>Tempo:</td><td><select id=tempo onchange="player.changetempo();"></select></td></tr> \
                 </table> \
             </div> \
             </div> \
@@ -393,7 +389,6 @@ Player = function() {
         ';
         $("#player").append(x);
 
-        for(var i=1;i<=8;i++){ ($('#beat')[0])[i-1] = new Option(i,i,i==4,i==4);}
         for(var i=40;i<=240;i++){ ($('#tempo')[0])[i-40] = new Option(i,i,i==120,i==120);}
 
         var list=Jazz.MidiOutList();
@@ -418,7 +413,6 @@ Player = function() {
     }
 
     this.Init = function() {
-        this.bcount = 0;
         tcount = 0;
         seq01.Init();
         seq02.Init();
@@ -448,10 +442,6 @@ Player = function() {
         seq01.Playnote();
         seq02.Playnote();
         tcount++;
-        if (tcount%24 == 0) {
-            this.bcount++;
-            if (this.bcount>=this.beat) this.bcount=0;
-        }
     }
 
     this.initmidi = function() {
@@ -473,11 +463,6 @@ Player = function() {
         }
     }
 
-    this.changebeat = function() {
-        var select_beat = document.getElementById('beat');
-        beat = select_beat.options[select_beat.selectedIndex].value;
-    }
-
     this.changetempo = function() {
         var select_tempo = document.getElementById('tempo');
         this.interval = 60000.0/select_tempo.options[select_tempo.selectedIndex].value/24;
@@ -487,8 +472,13 @@ Player = function() {
         var select_sync = document.getElementById('clocksync');
         this.sync = select_sync.options[select_sync.selectedIndex].value;
 
+        $("#play").removeAttr("disabled");
+        $("#tempo").removeAttr("disabled");
+
         // setup midi input
         if ( this.sync == 2 ) {
+            $("#play").attr("disabled", "disabled");
+            $("#tempo").attr("disabled", "disabled");
             midi_handler_id = Jazz.MidiInOpen(this.midi_in, midi_handler);
         }
     }
