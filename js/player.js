@@ -35,7 +35,7 @@ Sequencer = function(n, c) {
     this.transpose = 0;
     this.muted     = 0;
     this.name      = n;
-    this.loop      = 1; // 1=fwd, 2=rev, 3=pingpong
+    this.loop      = 1; // 1=fwd, 2=rev, 3=pingpong, 4=inner pingpong
 
     this.notes   = new Array(61, 73, 64, 75, 61, 68, 80, 59);
     this.repeat  = new Array( 3,  2,  2,  1,  1,  1,  2,  2);
@@ -128,7 +128,7 @@ Sequencer = function(n, c) {
                 Transpose: <select id='+this.transid+' onchange="'+this.name+'.change_transpose()"></select> \
                 Mute:      <input type=checkbox id='+this.muteid+' onchange="'+this.name+'.change_mute()"></select> \
                 Loop:       <select id='+this.loopid+' onchange="'+this.name+'.change_loop()"> \
-                            <option value=1>Forward</option><option value=2>Backward</option><option value=3>Pingpong</option> \
+                            <option value=1>Forward</option><option value=2>Backward</option><option value=3>Pingpong</option><option value=4>Inner</option> \
                             </select> \
                 <div class="pull-right"> \
                     <select id='+this.scaleid+'></select> \
@@ -234,10 +234,10 @@ Sequencer = function(n, c) {
 
     this.Reset = function() {
         for(i=0;i<this.notes.length;i++) {
-            this.notes[i]   = 48; // c4
+            this.notes[i]   = i%2==0?48:60; // c4/c5
             this.repeat[i]  = 1;
             this.noteoff[i] = 0;
-            this.retrig[i]  = 0;
+            this.retrig[i]  = 1;
         }
         this.Refresh();
         // all note off msg
@@ -259,7 +259,7 @@ Sequencer = function(n, c) {
         this.lastnoteoff = 0;
         this.looppos     = 0;
 
-        if (this.loop == 2)
+        if (this.loop == 2) // start backwards
             this.note = this.notes.length-1;
     }
 
@@ -296,8 +296,11 @@ Sequencer = function(n, c) {
             } else if ( this.loop == 3 && this.looppos == 0 ) { // pingpong forward
                 this.note++; if (this.note>=this.notes.length) { this.note=this.notes.length-1; this.looppos = 1 }
             } else if ( this.loop == 3 && this.looppos == 1 ) { // pingpong backward
-                this.note--;
-                if (this.note<0) { this.note = 0; this.looppos = 0 }
+                this.note--; if (this.note<0) { this.note = 0; this.looppos = 0 }
+            } else if ( this.loop == 4 && this.looppos == 0 ) { // innerpong forward
+                this.note++; if (this.note>=this.notes.length) { this.note=this.notes.length-2; this.looppos = 1 }
+            } else if ( this.loop == 4 && this.looppos == 1 ) { // innerpong backward
+                this.note--; if (this.note<0) { this.note = 1; this.looppos = 0 }
             } else {
                 alert("Cant be here.");
             }
@@ -326,7 +329,7 @@ function midi_handler(t,a,b,c) {
             console.log("Remote stop.");
             break;
         default:
-            console.log(t,a,b,c);
+            //console.log(t,a,b,c);
     }
 }
 
