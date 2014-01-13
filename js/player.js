@@ -375,7 +375,6 @@ Player = function() {
                 <tr><td>Clock Sync:</td><td><select id="clocksync" onchange="player.changesync();"> \
                     <option value=1>Send</option><option value=2>Receive</option><option value=3>Neither</option> \
                     </select></td></tr> \
-                <tr><td>Tempo:</td><td><select id=tempo onchange="player.changetempo();"></select></td></tr> \
                 </table> \
             </div> \
             </div> \
@@ -383,6 +382,7 @@ Player = function() {
             </div> \
             <div class="panel panel-default"> \
             <div class="panel-body"> \
+                BPM: <select id=tempo onchange="player.changetempo();"></select> \
                 <button id=play onclick="player.Play()">Play</button> \
                 <button id=export onclick="player.Export()">Export</button> \
             </div> \
