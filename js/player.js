@@ -6,6 +6,10 @@
 //
 // This code is in the public domain. Feel free to copy and modify.
 //
+// Code: https://github.com/tomarus/midiseq
+// Demo: http://www.youtube.com/watch?v=rxanzYEwgJg
+// Live: http://sandbox.dev.chiparus.net/midi/
+//
 
 var tcount = 0; // total ticks playing
 var player;     // global player object
@@ -37,16 +41,10 @@ Sequencer = function(n, c) {
     this.name      = n;
     this.loop      = 1; // 1=fwd, 2=rev, 3=pingpong, 4=inner pingpong
 
-    this.notes   = new Array(61, 73, 64, 75, 61, 68, 80, 59);
-    this.repeat  = new Array( 3,  2,  2,  1,  1,  1,  2,  2);
-    this.noteoff = new Array( 0,  9,  0,  0,  12,  0,  0,  19);
-    this.retrig  = new Array( 1,  1,  0,  0,  1,  0,  0,  1);
-    //var notes   = new Array(48, 58, 22, 43, 51, 39, 43, 26);
-    //var repeat  = new Array( 1,  3,  2,  2,  1,  2,  2,  1);
-    //var noteoff = new Array( 0,  3,  0,  14,  0,  0,  0,  19);
-    //var notes   = new Array(36, 35, 38, 39, 36, 41, 39, 35);
-    //var repeat  = new Array( 1,  3,  2,  5,  2,  1,  3,  2);
-    //var noteoff = new Array( 0,  1,  0,  1,  1,  0,  1,  1);
+    this.notes     = new Array();
+    this.repeat    = new Array();
+    this.noteoff   = new Array();
+    this.retrig    = new Array();
 
     this.note        = 0;
     this.lastnote    = 0;
@@ -63,6 +61,14 @@ Sequencer = function(n, c) {
     this.loopid  = this.name+'_loop';
     this.scaleid = this.name+'_scale';
     this.rangeid = this.name+'_range';
+
+    // Init patch, see this.Reset()
+    for(i=0;i<8;i++) {
+        this.notes[i]   = i%2==0?48:60; // c4/c5
+        this.repeat[i]  = 1;
+        this.noteoff[i] = 0;
+        this.retrig[i]  = 1;
+    }
 
     this.Export = function() {
         return {
