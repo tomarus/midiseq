@@ -11,6 +11,8 @@ See it live at http://midi.tomarus.io
 
 ![Screenshot](http://s.chiparus.org/4/41482956ba7d84a8.png)
 
+Watch a video on youtube seeing this in action: https://www.youtube.com/watch?v=p_IkbFeEmdg (This video has low audio quality and doesn't show all functionality).
+
 ## Quick Start
 
 1. Clone the source code.
