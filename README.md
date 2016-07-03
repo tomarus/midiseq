@@ -34,4 +34,6 @@ If there are lots of (or continuous) MIDI controller messages, the monitor panel
 
 Use CLK and SYS options to send Clock or System messages (play/stop etc) to MIDI ports.
 
+This project was originally inspired by the [Intellijel Metropolis](https://intellijel.com/eurorack-modules/metropolis/)
+
 Feedback and contributions are welcome!
