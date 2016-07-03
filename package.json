@@ -1,0 +1,40 @@
+{
+  "jspm": {
+    "dependencies": {
+      "bootstrap-less": "github:distros/bootstrap-less@^3.3.9",
+      "highcharts": "npm:highcharts@^4.2.4",
+      "history": "npm:history@^2.1.0",
+      "jquery": "npm:jquery@^2.2.3",
+      "less": "npm:systemjs-less-plugin@^1.8.1",
+      "react": "npm:react@^15.0.1",
+      "react-bootstrap": "npm:react-bootstrap@^0.29.0",
+      "react-dom": "npm:react-dom@^15.0.1",
+      "react-redux": "npm:react-redux@^4.4.5",
+      "react-router": "npm:react-router@^2.3.0",
+      "redux": "npm:redux@^3.5.1",
+      "redux-thunk": "npm:redux-thunk@^2.0.1"
+    },
+    "devDependencies": {
+      "babel": "npm:babel-core@^5.8.24",
+      "babel-runtime": "npm:babel-runtime@^5.8.24",
+      "core-js": "npm:core-js@^1.1.4"
+    }
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "eslintConfig": {
+    "extends": [
+      "xsnews"
+    ]
+  },
+  "devDependencies": {
+    "babel-eslint": "^6.0.0",
+    "eslint": "^2.8.0",
+    "eslint-config-xsnews": "git+http://git.xsnews.intern/lib/eslint-config-xsnews.git#v3.0.0",
+    "eslint-plugin-html": "^1.4.0",
+    "eslint-plugin-promise": "^1.0.8",
+    "eslint-plugin-react": "~3.16.1",
+    "eslint-plugin-standard": "^1.3.2"
+  }
+}
