@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "babel-eslint": "^6.0.0",
-    "eslint": "^2.8.0",
+    "eslint": "^6.8.0",
     "eslint-config-xsnews": "git+http://git.xsnews.intern/lib/eslint-config-xsnews.git#v3.0.0",
     "eslint-plugin-html": "^1.4.0",
     "eslint-plugin-promise": "^1.0.8",
